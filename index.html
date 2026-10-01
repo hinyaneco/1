@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>チャットのれんしゅう</title>
+  <style>
+    :root {
+      --primary-color: #5b86e5;
+      --bg-color: #7494c0;
+      --chat-bg: #8cabd9;
+      --user-msg-bg: #85e249;
+      --bot-msg-bg: #ffffff;
+      --btn-active: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    body {
+      font-family: "Hiragino Kaku Gothic ProN", "メイリオ", sans-serif;
+      background-color: #2b3a4e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #app-container {
+      width: 100%;
+      max-width: 500px;
+      height: 100vh;
+      background-color: var(--bg-color);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    }
+
+    /* ヘッダー */
+    header {
+      background-color: #273246;
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .partner-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background-color: #ffb74d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      border: 2px solid #fff;
+    }
+
+    .partner-name {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    /* チャット表示エリア */
+    .chat-area {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background-color: var(--chat-bg);
+      scroll-behavior: smooth;
+    }
+
+    .message-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 80%;
+    }
+
+    .message-group.left {
+      align-self: flex-start;
+    }
+
+    .message-group.right {
+      align-self: flex-end;
+    }
+
+    .message-bubble {
+      padding: 12px 16px;
+      border-radius: 20px;
+      font-size: 1.3rem;
+      line-height: 1.4;
+      word-break: break-word;
+      position: relative;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .left .message-bubble {
+      background-color: var(--bot-msg-bg);
+      color: #333;
+      border-top-left-radius: 4px;
+    }
+
+    .right .message-bubble {
+      background-color: var(--user-msg-bg);
+      color: #000;
+      border-top-right-radius: 4px;
+    }
+
+    .message-img {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 12px;
+      display: block;
+      margin-top: 4px;
+    }
+
+    /* 送信コントロールエリア */
+    .control-area {
+      background-color: #f5f5f5;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-top: 2px solid #ddd;
+    }
+
+    .stamp-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .btn {
+      background-color: #ffffff;
+      border: 2px solid #ccc;
+      border-bottom: 5px solid #bbb;
+      border-radius: 16px;
+      padding: 10px 4px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.1s;
+      touch-action: manipulation;
+    }
+
+    .btn:active {
+      transform: translateY(3px);
+      border-bottom-width: 2px;
+      background-color: var(--btn-active);
+    }
+
+    .btn-icon {
+      font-size: 2rem;
+    }
+
+    .btn-photo {
+      background-color: #fff3e0;
+      border-color: #ffb74d;
+      border-bottom-color: #f57c00;
+      color: #e65100;
+    }
+
+    /* 写真選択モーダル */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.6);
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background-color: white;
+      width: 100%;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-height: 80vh;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .close-btn {
+      background: #eee;
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .photo-card {
+      background: #f9f9f9;
+      border: 2px solid #eee;
+      border-radius: 12px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .photo-card:active {
+      background: #e3f2fd;
+      border-color: #2196f3;
+    }
+
+    .photo-card img {
+      width: 100%;
+      height: 70px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .upload-box {
+      border: 2px dashed #4caf50;
+      background-color: #f1f8e9;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      color: #2e7d32;
+      font-weight: bold;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    #fileInput {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app-container">
+  <header>
+    <div class="partner-info">
+      <div class="avatar">👩‍🏫</div>
+      <div class="partner-name">せんせい</div>
+    </div>
+  </header>
+
+  <div class="chat-area" id="chatArea">
+    <div class="message-group left">
+      <div class="message-bubble">こんにちは！<br>すきなものを おしえてね😊</div>
+    </div>
+  </div>
+
+  <div class="control-area">
+    <div class="stamp-grid">
+      <button class="btn" onclick="sendStamp('😊', 'にっこり')">
+        <span class="btn-icon">😊</span>
+        <span>うれしい</span>
+      </button>
+      <button class="btn" onclick="sendStamp('👍', 'いいね')">
+        <span class="btn-icon">👍</span>
+        <span>いいね</span>
+      </button>
+      <button class="btn" onclick="sendStamp('👋', 'ばいばい')">
+        <span class="btn-icon">👋</span>
+        <span>またね</span>
+      </button>
+      <button class="btn btn-photo" onclick="openPhotoModal()">
+        <span class="btn-icon">📷</span>
+        <span>しゃしん</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="photoModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>どの しゃしんを おくる？</span>
+        <button class="close-btn" onclick="closePhotoModal()">✕</button>
+      </div>
+
+      <label class="upload-box">
+        <span>📁 じぶんの しゃしんを選ぶ</span>
+        <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
+      </label>
+
+      <div class="photo-grid">
+        <div class="photo-card" onclick="sendPresetPhoto('🐶 いぬ', 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300')">
+          <img src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300" alt="いぬ">
+          <span>🐶 いぬ</span>
+        </div>
+        <div class="photo-card" onclick="sendPresetPhoto('🍎 りんご', 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300')">
+          <img src="https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300" alt="りんご">
+          <span>🍎 りんご</span>
+        </div>
+        <div class="photo-card" onclick="sendPresetPhoto('🍱 おべんとう', 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300')">
+          <img src="https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300" alt="おべんとう">
+          <span>🍱 おべんとう</span>
+        </div>
+        <div class="photo-card" onclick="sendPresetPhoto('🌸 はな', 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=300')">
+          <img src="https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=300" alt="はな">
+          <span>🌸 はな</span>
+        </div>
+        <div class="photo-card" onclick="sendPresetPhoto('🚗 くるま', 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=300')">
+          <img src="https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=300" alt="くるま">
+          <span>🚗 くるま</span>
+        </div>
+        <div class="photo-card" onclick="sendPresetPhoto('🏫 がっこう', 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=300')">
+          <img src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=300" alt="がっこう">
+          <span>🏫 がっこう</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function speak(text) {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const uttr = new SpeechSynthesisUtterance(text);
+      uttr.lang = 'ja-JP';
+      uttr.rate = 0.9;
+      window.speechSynthesis.speak(uttr);
+    }
+  }
+
+  function playPopSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch(e){}
+  }
+
+  const replies = {
+    '😊': ['うれしいね！✨', 'にっこり笑顔、すてき！😊', 'たのしいね！'],
+    '👍': ['いいね！👏', 'オッケー！ぐー！👍', 'そのちょうし！'],
+    '👋': ['またねー！👋', 'ばいばい！またおはなししようね！', 'さようなら！'],
+    'いぬ': ['かわいい ワンちゃんだね！🐶', 'ワンワン！かわいいね！'],
+    'りんご': ['おいしそうな りんご！🍎', 'あかくて おいしそうだね！'],
+    'おべんとう': ['おいしそう～！🍱', 'おなかすいてきちゃった！'],
+    'はな': ['きれいな お花だね！🌸', 'すてきな お花！✨'],
+    'くるま': ['かっこいい くるまだね！🚗', 'ぶーぶー！かっこいい！'],
+    'がっこう': ['がっこう たのしいね！🏫', 'みんなで がんばろうね！'],
+    'photo_default': ['ステキな しゃしんだね！✨', 'しゃしん ありがとう！😊']
+  };
+
+  function sendStamp(emoji, label) {
+    playPopSound();
+    addMessage('right', emoji);
+
+    setTimeout(() => {
+      const list = replies[emoji] || ['ありがとう！'];
+      const reply = list[Math.floor(Math.random() * list.length)];
+      addMessage('left', reply);
+      speak(reply);
+    }, 1200);
+  }
+
+  function sendPresetPhoto(label, url) {
+    closePhotoModal();
+    playPopSound();
+    addMessage('right', `<img src="${url}" class="message-img"><br>${label}`);
+
+    setTimeout(() => {
+      let key = 'photo_default';
+      if (label.includes('いぬ')) key = 'いぬ';
+      if (label.includes('りんご')) key = 'りんご';
+      if (label.includes('おべんとう')) key = 'おべんとう';
+      if (label.includes('はな')) key = 'はな';
+      if (label.includes('くるま')) key = 'くるま';
+      if (label.includes('がっこう')) key = 'がっこう';
+
+      const list = replies[key];
+      const reply = list[Math.floor(Math.random() * list.length)];
+      addMessage('left', reply);
+      speak(reply);
+    }, 1500);
+  }
+
+  function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        closePhotoModal();
+        playPopSound();
+        addMessage('right', `<img src="${e.target.result}" class="message-img"><br>しゃしん`);
+
+        setTimeout(() => {
+          const list = replies['photo_default'];
+          const reply = list[Math.floor(Math.random() * list.length)];
+          addMessage('left', reply);
+          speak(reply);
+        }, 1500);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function addMessage(side, htmlContent) {
+    const chatArea = document.getElementById('chatArea');
+    const group = document.createElement('div');
+    group.className = `message-group ${side}`;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    bubble.innerHTML = htmlContent;
+
+    group.appendChild(bubble);
+    chatArea.appendChild(group);
+
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  function openPhotoModal() {
+    document.getElementById('photoModal').classList.add('active');
+  }
+
+  function closePhotoModal() {
+    document.getElementById('photoModal').classList.remove('active');
+  }
+</script>
+
+</body>
+</html>
